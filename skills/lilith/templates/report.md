@@ -6,6 +6,7 @@ Fill this in. Skip any section that's empty. Write in the user's language.
 - 🟡: one line each.
 - ⚪ Cleanup: grouped counts only ("34 leftover logs in 12 files"). Details only if the user asks.
 - 💡: one line each, or skip.
+- Last line when nothing is 🔴 or 🟠: "Nothing urgent. Continue to cleanup?"
 
 | Level | Meaning |
 |---|---|

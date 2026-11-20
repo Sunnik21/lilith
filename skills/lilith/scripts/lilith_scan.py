@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+from typing import Iterator, List, Set, Tuple
 
 SKIP_DIRS = {
     "node_modules", ".git", "dist", "build", ".next", ".nuxt", ".svelte-kit", ".astro",
@@ -32,6 +33,7 @@ MAX_BYTES = 1_000_000
 BIG_FILE_LINES = 400
 LONG_FILE_LINES = 300          # read plan gives line ranges for files longer than this
 PLAN_LIMIT = 25
+SKIPPED_SHOWN = 6             # gitignored folders named in the text output
 SIZE_CLASSES = [("small", 60, 8_000), ("medium", 400, 60_000)]  # (name, max files, max lines); else large
 RULE_FILES = ("firestore.rules", "storage.rules", "database.rules.json")
 LEAD_WEIGHT = {"critical": 8, "high": 4, "medium": 2, "info": 0.5, "cleanup": 0}
@@ -191,6 +193,28 @@ def git_tracked(root):
     return None
 
 
+def git_ignored(root: str) -> Tuple[Set[str], Set[str]]:
+    """Gitignored (folders, files) under root, relative to it. Empty without git or inside an ignored folder."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", root, "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory"],
+            capture_output=True, text=True, timeout=20,
+        )
+    except Exception:
+        return set(), set()
+    if out.returncode != 0:
+        return set(), set()
+    paths = [p for p in out.stdout.split("\0") if p]
+    return {p.rstrip("/") for p in paths if p.endswith("/")}, {p for p in paths if not p.endswith("/")}
+
+
+def reportable_ignored(ignored_dirs: Set[str]) -> List[str]:
+    """Skipped gitignored folders worth telling the agent about (not node_modules and the like)."""
+    def is_noise(path: str) -> bool:
+        return any(part in SKIP_DIRS or part.startswith(".git") for part in path.split("/"))
+    return sorted(d + "/" for d in ignored_dirs if not is_noise(d))
+
+
 def git_history_env(root):
     try:
         out = subprocess.run(
@@ -211,12 +235,19 @@ def is_env_file(name):
     return not any(x in n for x in ("example", "sample", "template", "defaults"))
 
 
-def iter_files(root):
+def iter_files(root: str, ignored_dirs: Set[str] = frozenset(), ignored_files: Set[str] = frozenset()) -> Iterator[str]:
+    """Text files to scan. Gitignored folders are skipped; gitignored files too, except env files."""
+    def rel_of(dirpath: str, name: str) -> str:
+        return os.path.relpath(os.path.join(dirpath, name), root).replace(os.sep, "/")
+
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".git")
-                       and os.path.abspath(os.path.join(dirpath, d)) != SELF_DIR]
+                       and os.path.abspath(os.path.join(dirpath, d)) != SELF_DIR
+                       and rel_of(dirpath, d) not in ignored_dirs]
         for f in filenames:
             if f in SKIP_FILES:
+                continue
+            if not is_env_file(f) and rel_of(dirpath, f) in ignored_files:
                 continue
             path = os.path.join(dirpath, f)
             ext = os.path.splitext(f)[1].lower()
@@ -269,10 +300,12 @@ def detect_project(root):
     info = {"stack": [], "spa": False}
     pkg = read(os.path.join(root, "package.json"))
     deps = {}
+    has_bin = False
     if pkg:
         try:
             data = json.loads(pkg)
             deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+            has_bin = bool(data.get("bin"))
         except Exception:
             pass
     names = set(deps)
@@ -303,8 +336,10 @@ def detect_project(root):
     if os.path.exists(os.path.join(root, "vercel.json")): info["stack"].append("Vercel")
     if os.path.exists(os.path.join(root, "netlify.toml")): info["stack"].append("Netlify")
     if os.path.exists(os.path.join(root, "Dockerfile")) or os.path.exists(os.path.join(root, "docker-compose.yml")): info["stack"].append("Docker")
-    for py in ("requirements.txt", "pyproject.toml"):
-        if os.path.exists(os.path.join(root, py)): info["stack"].append("Python")
+    if has_bin: info["stack"].insert(0, "Node CLI")
+    elif pkg and not info["stack"]: info["stack"].append("Node.js")
+    if any(os.path.exists(os.path.join(root, py)) for py in ("requirements.txt", "pyproject.toml", "setup.py", "Pipfile")):
+        info["stack"].append("Python")
     info["has_lockfile"] = any(os.path.exists(os.path.join(root, f)) for f in ("package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lockb", "bun.lock"))
     info["has_package_json"] = bool(pkg)
     return info
@@ -414,6 +449,7 @@ def scan(root, max_examples):
     root = os.path.abspath(root)
     project = detect_project(root)
     tracked = git_tracked(root)
+    ignored_dirs, ignored_files = git_ignored(root)
     findings = []
 
     def add(check, severity, rel, line, note):
@@ -439,8 +475,9 @@ def scan(root, max_examples):
     totals = {"C1": 0, "C3": 0}
     hints, file_lines = {}, {}
     n_files = n_lines_total = 0
+    has_python = False
 
-    for path in iter_files(root):
+    for path in iter_files(root, ignored_dirs, ignored_files):
         rel = os.path.relpath(path, root)
         name = os.path.basename(path)
         ext = os.path.splitext(name)[1].lower()
@@ -451,6 +488,8 @@ def scan(root, max_examples):
         is_example_env = name.lower().startswith(".env") and not is_env
         is_code = ext in CODE_EXT
         is_doc = ext in (".md", ".txt")
+        is_data = ext == ".json"  # manifests and fixtures name env vars without bundling them
+        has_python = has_python or ext == ".py"
         client = is_code and is_client_file(rel, text, project)
         file_lines[rel.replace(os.sep, "/")] = text.count("\n") + 1
         if is_code or ext in (".sql", ".rules") or name in RULE_FILES:
@@ -493,7 +532,7 @@ def scan(root, max_examples):
             var = m.group(0)
             if "PUBLISHABLE" in var or "ANON" in var:
                 continue
-            add("S2", "info" if is_doc else "critical", rel, line_of(text, m.start()), f"{var} is bundled into browser code (public prefix on a secret)")
+            add("S2", "info" if is_doc or is_data else "critical", rel, line_of(text, m.start()), f"{var} is bundled into browser code (public prefix on a secret)")
 
         # S2 secret clients in browser code
         if client:
@@ -606,6 +645,9 @@ def scan(root, max_examples):
     for f in findings:
         f["file"] = f["file"].replace(os.sep, "/")
     project["size"] = {"files": n_files, "lines": n_lines_total, "class": size_class(n_files, n_lines_total)}
+    if has_python and "Python" not in project["stack"]:
+        project["stack"] = project["stack"] + ["Python"]
+    project["skipped_ignored"] = reportable_ignored(ignored_dirs)
     project["hints"] = hints
     project["file_lines"] = file_lines
     return project, findings, totals
@@ -625,7 +667,14 @@ def header_lines(project, findings):
     head = (f"Lilith quick scan · {', '.join(project['stack']) or 'unknown stack'} · "
             f"{size['files']} files, {size['lines']:,} lines ({size['class']})")
     leads = "Leads (hints, confirm by reading): " + " ".join(f"{ICONS[k]}{v}" for k, v in counts.items() if v)
-    return [head, leads]
+    return [head, leads] + skipped_lines(project.get("skipped_ignored", []))
+
+
+def skipped_lines(skipped: List[str]) -> List[str]:
+    if not skipped:
+        return []
+    more = f" +{len(skipped) - SKIPPED_SHOWN} more" if len(skipped) > SKIPPED_SHOWN else ""
+    return [f"Skipped (gitignored): {' '.join(skipped[:SKIPPED_SHOWN])}{more}. Scan one separately if it gets deployed."]
 
 
 def plan_lines(entries, left_out):
@@ -687,6 +736,7 @@ def summarize(project, findings, max_examples):
     out.append("Stack: " + (", ".join(project["stack"]) or "unknown"))
     size = project["size"]
     out.append(f"Size: {size['files']} files, {size['lines']:,} lines ({size['class']})")
+    out += skipped_lines(project.get("skipped_ignored", []))
     out.append("Every item below is a LEAD. Confirm by reading the code before reporting it.\n")
     by_check = {}
     for f in findings:
@@ -732,7 +782,8 @@ def main():
     plan, left_out = read_plan(findings, project["hints"], project["file_lines"], args.plan_limit)
     if args.json:
         print(json.dumps({"stack": project["stack"], "size": project["size"], "findings": findings, "totals": totals,
-                          "read_plan": plan, "read_plan_left_out": left_out}, indent=2, ensure_ascii=False))
+                          "read_plan": plan, "read_plan_left_out": left_out,
+                          "skipped_ignored": project["skipped_ignored"]}, indent=2, ensure_ascii=False))
         return
     try:
         sys.stdout.reconfigure(encoding="utf-8")

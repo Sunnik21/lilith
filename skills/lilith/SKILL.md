@@ -22,11 +22,11 @@ Cleanup runs only when asked.
 
 ## Steps
 
-1. **Scan.** `python3 <this-skill-folder>/scripts/lilith_scan.py <project-root>`: stack, size, leads (hints, not findings), **read plan**. No Python: check by reading. Tell the user the stack in one line.
+1. **Scan.** `python3 <this-skill-folder>/scripts/lilith_scan.py <project-root>`: stack, size, leads (hints, not findings), **read plan**. No Python: check by reading. Tell the user the stack in one line. If the scan skipped a gitignored folder that gets deployed, scan that folder too.
 2. **Security.** Load what the table below says, go through S1 to S14, read the plan's files. A problem counts only if you can finish "[who] can [do what] to [whose data or money]".
 3. **Live database** (Supabase or Firebase in the stack): follow the live check in the stack file. Skipped → the report says "Live database: NOT checked".
 4. **Cleanup** (full or cleanup mode only): code, then UI and copy. Cleanup never changes what the app does.
-5. **Report** with templates/report.md. Security mode ends with exactly one question: "Fix the critical ones, or continue to cleanup?"
+5. **Report** with templates/report.md. Security mode ends with exactly one question: "Fix the critical ones, or continue to cleanup?" (nothing critical or high: "Nothing urgent. Continue to cleanup?")
 6. **Fix** only with permission: follow guides/fixing.md.
 
 ## Load this file when...
@@ -57,5 +57,6 @@ Cleanup runs only when asked.
 - Read code. Never attack live sites, call production or use real users' data; give the owner a safe self-test.
 - Never print a full secret: `sk_live_51H••••4f2a`.
 - Don't invent problems. Unsure: "worth checking" + the exact question.
+- Leads in tests, fixtures or sample apps are findings only if that code ships. Otherwise mention them in one line.
 - Ask before `npm audit fix --force`, deleting files or rewriting git history.
 - Project conventions beat Lilith's style rules.
