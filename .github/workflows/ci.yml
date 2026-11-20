@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+      - name: Installer tests
+        run: npm test
+      - name: Package contents
+        run: npm pack --dry-run
+      - name: Scanner tests
+        run: python3 tests/test_scan.py
+      - name: Supabase SQL check (uses the runner's PostgreSQL binaries, skips if missing)
+        run: python3 tests/test_supabase_check.py
+      - name: Benchmark manifests
+        run: python3 bench/build.py --check
+      - name: Scanner benchmark (fails on regressions)
+        run: python3 bench/run_scanner.py --min-recall 0.80 --min-precision 0.90 --max-decoys 1

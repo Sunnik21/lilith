@@ -1,0 +1,37 @@
+{
+  "name": "lilith-skill",
+  "version": "0.1.0",
+  "description": "Security check for vibecoded apps: an Agent Skill for Claude Code, Codex, Cursor, Copilot, Gemini CLI and more. Finds leaked keys, open Supabase/Firebase databases and missing login checks, in plain words.",
+  "type": "module",
+  "bin": {
+    "lilith-skill": "bin/lilith.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "skills/lilith/",
+    "!**/__pycache__/",
+    "!**/*.pyc",
+    "!**/.DS_Store",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:py": "python3 tests/test_scan.py && python3 tests/test_supabase_check.py"
+  },
+  "engines": {
+    "node": ">=18.3"
+  },
+  "keywords": [
+    "agent-skill",
+    "skills",
+    "claude-code",
+    "codex",
+    "cursor",
+    "security",
+    "supabase",
+    "firebase",
+    "vibecoding"
+  ],
+  "license": "MIT"
+}

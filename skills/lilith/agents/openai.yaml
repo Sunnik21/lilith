@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lilith"
+  short_description: "Make a vibecoded app safe and clean before launch"
+  default_prompt: "Run lilith on this project"

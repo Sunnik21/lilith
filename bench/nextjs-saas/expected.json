@@ -1,0 +1,213 @@
+{
+  "app": "nextjs-saas",
+  "stack": "Next.js 14 app router + Supabase + Stripe + OpenAI",
+  "bugs": [
+    {
+      "id": "N1",
+      "check": "S6",
+      "file": "app/api/checkout/route.ts",
+      "snippet": "const { plan, price } = await req.json();",
+      "severity": "high",
+      "regex": false,
+      "description": "checkout uses the price sent by the browser: anyone can pay $0.01 for Pro",
+      "lines": [
+        10,
+        17
+      ]
+    },
+    {
+      "id": "N2",
+      "check": "S7",
+      "file": "app/api/webhooks/stripe/route.ts",
+      "snippet": "const event = await req.json();",
+      "severity": "critical",
+      "regex": true,
+      "description": "Stripe webhook trusts the JSON body with no signature check: anyone can POST a fake payment and get Pro + credits",
+      "lines": [
+        5,
+        13
+      ]
+    },
+    {
+      "id": "N3",
+      "check": "S8",
+      "file": "app/api/chat/route.ts",
+      "snippet": "const completion = await openai.chat.completions.create({",
+      "severity": "high",
+      "regex": true,
+      "description": "AI endpoint (gpt-4o, 4000 tokens, full message history from the client) has no per-user limit: one account can run up the bill",
+      "lines": [
+        13,
+        17
+      ]
+    },
+    {
+      "id": "N4",
+      "check": "S5",
+      "file": "app/api/documents/[id]/route.ts",
+      "snippet": "const { data, error } = await supabaseAdmin",
+      "severity": "high",
+      "regex": false,
+      "description": "documents loaded by id with the service-role client and no owner filter: any user can read anyone's document",
+      "lines": [
+        10,
+        14
+      ]
+    },
+    {
+      "id": "N5",
+      "check": "S4",
+      "file": "app/actions/projects.ts",
+      "snippet": "export async function deleteProject(projectId: string) {",
+      "severity": "critical",
+      "regex": true,
+      "description": "server action deletes any project with the admin client and no login check: anyone can call it directly",
+      "lines": [
+        5,
+        9
+      ]
+    },
+    {
+      "id": "N6",
+      "check": "S6",
+      "also": [
+        "S4"
+      ],
+      "file": "app/api/admin/users/route.ts",
+      "snippet": "const { requesterRole, userId, plan, credits } = await req.json();",
+      "severity": "critical",
+      "regex": false,
+      "description": "admin endpoint trusts requesterRole from the request body, no login: anyone can give themselves Pro and credits",
+      "lines": [
+        6,
+        10
+      ]
+    },
+    {
+      "id": "N7",
+      "check": "S12",
+      "file": "app/api/debug/route.ts",
+      "snippet": "return NextResponse.json({ env: process.env",
+      "severity": "critical",
+      "regex": true,
+      "description": "public debug route returns process.env: service-role, Stripe and OpenAI keys to anyone",
+      "lines": [
+        5,
+        5
+      ]
+    },
+    {
+      "id": "N8",
+      "check": "S9",
+      "also": [
+        "S11"
+      ],
+      "file": "components/ChatBox.tsx",
+      "snippet": "dangerouslySetInnerHTML={{ __html: marked.parse(answer)",
+      "severity": "medium",
+      "regex": true,
+      "description": "AI answer rendered as raw HTML via marked: prompt-injected documents can run script in the user's session",
+      "lines": [
+        22,
+        22
+      ]
+    },
+    {
+      "id": "N9",
+      "check": "S11",
+      "also": [
+        "S1"
+      ],
+      "file": "lib/ai/prompt.ts",
+      "snippet": "Internal notes (do not share)",
+      "severity": "high",
+      "regex": false,
+      "description": "system prompt holds a staff discount code and admin panel login: any user can extract them",
+      "lines": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": "N10",
+      "check": "S14",
+      "file": "middleware.ts",
+      "snippet": "const origin = req.headers.get(\"origin\") ?? \"*\";",
+      "severity": "medium",
+      "regex": true,
+      "description": "CORS reflects any Origin with Allow-Credentials: other sites can call the API as the user (limited by SameSite cookies)",
+      "lines": [
+        5,
+        8
+      ]
+    }
+  ],
+  "decoys": [
+    {
+      "id": "ND1",
+      "check": "S1",
+      "file": "lib/supabase/client.ts",
+      "snippet": "createBrowserClient(",
+      "why": "Supabase anon key in browser code is public by design",
+      "lines": [
+        4,
+        7
+      ]
+    },
+    {
+      "id": "ND2",
+      "check": "S1",
+      "file": "components/Pricing.tsx",
+      "snippet": "loadStripe(",
+      "why": "Stripe publishable key (pk_) is meant for the browser",
+      "lines": [
+        4,
+        4
+      ]
+    },
+    {
+      "id": "ND3",
+      "check": "S4",
+      "file": "app/api/blog/route.ts",
+      "snippet": "export async function GET()",
+      "why": "public read-only list of published posts, no private data",
+      "lines": [
+        5,
+        13
+      ]
+    },
+    {
+      "id": "ND4",
+      "check": "S9",
+      "file": "app/layout.tsx",
+      "snippet": "dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}",
+      "why": "JSON-LD from a static object written by the developer",
+      "lines": [
+        12,
+        12
+      ]
+    },
+    {
+      "id": "ND5",
+      "check": "C1",
+      "file": "app/error.tsx",
+      "snippet": "console.error(error);",
+      "why": "console.error in the error boundary is intentional",
+      "lines": [
+        6,
+        6
+      ]
+    },
+    {
+      "id": "ND6",
+      "check": "S2",
+      "file": "lib/supabase/admin.ts",
+      "snippet": "process.env.SUPABASE_SERVICE_ROLE_KEY",
+      "why": "service-role key read from a server-only env var in a server-only module",
+      "lines": [
+        6,
+        6
+      ]
+    }
+  ]
+}

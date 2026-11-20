@@ -1,0 +1,15 @@
+.venv/
+.idea/
+.DS_Store
+__pycache__/
+*.pyc
+bench/.build/
+bench/.agent-runs/
+node_modules/
+*.tgz
+site/dist/
+
+# Local only: website and personal files (not part of the published skill)
+site/
+.serena/
+Personal design system.zip

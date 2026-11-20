@@ -1,0 +1,213 @@
+{
+  "app": "express-api",
+  "stack": "Express + Prisma + JWT",
+  "bugs": [
+    {
+      "id": "E1",
+      "check": "S1",
+      "also": [
+        "S4"
+      ],
+      "file": "src/config.js",
+      "snippet": "jwtSecret: process.env.JWT_SECRET ||",
+      "severity": "critical",
+      "regex": false,
+      "description": "hard-coded fallback JWT secret: if the env var is missing anyone can sign admin tokens",
+      "lines": [
+        3,
+        3
+      ]
+    },
+    {
+      "id": "E2",
+      "check": "S1",
+      "file": "src/db.js",
+      "snippet": "db: { url: process.env.DATABASE_URL ||",
+      "severity": "critical",
+      "regex": true,
+      "description": "production database URL with password hard-coded in the repo",
+      "lines": [
+        5,
+        5
+      ]
+    },
+    {
+      "id": "E3",
+      "check": "S4",
+      "file": "src/middleware/auth.js",
+      "snippet": "const payload = jwt.decode(token);",
+      "severity": "critical",
+      "regex": false,
+      "description": "jwt.decode instead of jwt.verify: any self-made token is accepted, so anyone can log in as anyone (and as admin)",
+      "lines": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "E4",
+      "check": "S6",
+      "also": [
+        "S5"
+      ],
+      "file": "src/routes/users.js",
+      "snippet": "router.patch(\"/:id\", requireAuth, async (req, res) => {",
+      "severity": "high",
+      "regex": false,
+      "description": "PATCH /users/:id writes req.body to any user id: change someone else's email or set role: admin",
+      "lines": [
+        15,
+        21
+      ]
+    },
+    {
+      "id": "E5",
+      "check": "S5",
+      "file": "src/routes/orders.js",
+      "snippet": "const order = await prisma.order.findUnique({ where: { id: req.params.id } });",
+      "severity": "high",
+      "regex": false,
+      "description": "GET /orders/:id has no owner check: any user can read other users' orders and addresses",
+      "lines": [
+        14,
+        14
+      ]
+    },
+    {
+      "id": "E6",
+      "check": "S8",
+      "file": "src/routes/auth.js",
+      "snippet": "router.post(\"/login\", async (req, res) => {",
+      "severity": "medium",
+      "regex": true,
+      "description": "login and register have no rate limit: password guessing and signup spam",
+      "lines": [
+        16,
+        23
+      ]
+    },
+    {
+      "id": "E7",
+      "check": "S9",
+      "file": "src/routes/search.js",
+      "snippet": "const products = await prisma.$queryRawUnsafe(",
+      "severity": "critical",
+      "regex": true,
+      "description": "public search builds SQL from the query string: SQL injection reads or deletes the whole database",
+      "lines": [
+        9,
+        11
+      ]
+    },
+    {
+      "id": "E8",
+      "check": "S10",
+      "file": "src/routes/upload.js",
+      "snippet": "filename: (req, file, cb) => cb(null, file.originalname),",
+      "severity": "medium",
+      "regex": false,
+      "description": "uploads keep the user's file name, no size or type limit, served from public/: overwrite files or host HTML on your domain",
+      "lines": [
+        8,
+        10
+      ]
+    },
+    {
+      "id": "E10",
+      "check": "S12",
+      "file": "src/app.js",
+      "snippet": "res.status(500).json({ error: err.message, stack: err.stack });",
+      "severity": "medium",
+      "regex": false,
+      "description": "error handler returns stack traces and internal messages to the client",
+      "lines": [
+        20,
+        20
+      ]
+    },
+    {
+      "id": "E11",
+      "check": "S12",
+      "file": "src/routes/admin.js",
+      "snippet": "router.post(\"/setup\", async (req, res) => {",
+      "severity": "critical",
+      "regex": true,
+      "description": "public /admin/setup creates or resets admin@admin.com / admin123: anyone can become admin",
+      "lines": [
+        8,
+        16
+      ],
+      "also": [
+        "S4"
+      ]
+    }
+  ],
+  "decoys": [
+    {
+      "id": "ED1",
+      "check": "S4",
+      "file": "src/routes/health.js",
+      "snippet": "router.get(\"/\", (req, res) => {",
+      "why": "public health check returns no data",
+      "lines": [
+        6,
+        8
+      ]
+    },
+    {
+      "id": "ED2",
+      "check": "C1",
+      "file": "src/routes/orders.js",
+      "snippet": "console.error(\"Failed to load order\", err);",
+      "why": "server-side error logging in a catch block",
+      "lines": [
+        18,
+        18
+      ]
+    },
+    {
+      "id": "ED3",
+      "check": "S9",
+      "file": "public/js/app.js",
+      "snippet": "results.innerHTML = '<span class=\"spinner\"",
+      "why": "innerHTML set to a static spinner; results are rendered with textContent",
+      "lines": [
+        5,
+        5
+      ]
+    },
+    {
+      "id": "ED4",
+      "check": "S12",
+      "file": "tests/auth.test.js",
+      "snippet": "const password = \"test123\";",
+      "why": "test fixture password inside a unit test, never shipped",
+      "lines": [
+        6,
+        6
+      ]
+    },
+    {
+      "id": "ED5",
+      "check": "S1",
+      "file": ".env.example",
+      "snippet": "JWT_SECRET=change-me",
+      "why": "placeholder value in the example env file",
+      "lines": [
+        2,
+        2
+      ]
+    },
+    {
+      "id": "ED6",
+      "check": "S14",
+      "file": "src/app.js",
+      "snippet": "app.use(cors({ origin: true, credentials: true }));",
+      "why": "looks like credentialed CORS, but auth uses a Bearer header, not cookies, so another site cannot act as the user",
+      "lines": [
+        7,
+        7
+      ]
+    }
+  ]
+}

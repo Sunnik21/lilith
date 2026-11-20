@@ -1,0 +1,227 @@
+{
+  "app": "lovable-style",
+  "stack": "Vite + React + Supabase (no server), Stripe Checkout, OpenAI",
+  "bugs": [
+    {
+      "id": "L1",
+      "check": "S1",
+      "also": [
+        "S2"
+      ],
+      "file": ".env",
+      "snippet": "VITE_OPENAI_API_KEY=",
+      "severity": "critical",
+      "regex": true,
+      "description": ".env with the OpenAI key is committed to git (.env missing from .gitignore)",
+      "lines": [
+        3,
+        3
+      ],
+      "also_files": [
+        ".gitignore"
+      ]
+    },
+    {
+      "id": "L2",
+      "check": "S2",
+      "also": [
+        "S11"
+      ],
+      "file": "src/lib/ai.ts",
+      "snippet": "const openai = new OpenAI({",
+      "severity": "critical",
+      "regex": true,
+      "description": "OpenAI client runs in the browser with dangerouslyAllowBrowser: every visitor gets the key",
+      "lines": [
+        3,
+        6
+      ]
+    },
+    {
+      "id": "L3",
+      "check": "S3",
+      "file": "supabase/migrations/20240612093000_init.sql",
+      "snippet": "create policy \"Enable all access for messages\"",
+      "severity": "critical",
+      "regex": true,
+      "description": "messages policy FOR ALL USING (true) WITH CHECK (true): anyone can read, edit and delete every comment",
+      "lines": [
+        33,
+        34
+      ]
+    },
+    {
+      "id": "L4",
+      "check": "S3",
+      "file": "supabase/migrations/20240612093000_init.sql",
+      "snippet": "create table public.contact_requests (",
+      "severity": "critical",
+      "regex": true,
+      "description": "contact_requests (names, emails, phones) created without RLS: anyone with the anon key can read them",
+      "lines": [
+        48,
+        54
+      ]
+    },
+    {
+      "id": "L5",
+      "check": "S6",
+      "also": [
+        "S3"
+      ],
+      "file": "supabase/migrations/20240612093000_init.sql",
+      "snippet": "create policy \"Users can update own profile\"",
+      "severity": "high",
+      "regex": false,
+      "description": "update policy on profiles covers every column: a user can set their own is_admin = true or plan = 'pro'",
+      "lines": [
+        11,
+        12
+      ]
+    },
+    {
+      "id": "L6",
+      "check": "S5",
+      "also": [
+        "S3"
+      ],
+      "file": "supabase/migrations/20240612093000_init.sql",
+      "snippet": "create policy \"Authenticated users can view orders\"",
+      "severity": "high",
+      "regex": false,
+      "description": "any logged-in user can read every order (emails, totals); the admin page is protected only in the UI",
+      "lines": [
+        44,
+        45
+      ]
+    },
+    {
+      "id": "L7",
+      "check": "S10",
+      "file": "supabase/migrations/20240612093000_init.sql",
+      "snippet": "insert into storage.buckets",
+      "severity": "high",
+      "regex": false,
+      "description": "ID documents stored in a public bucket: anyone with a link can download them",
+      "lines": [
+        57,
+        57
+      ]
+    },
+    {
+      "id": "L8",
+      "check": "S4",
+      "also": [
+        "S8"
+      ],
+      "file": "supabase/functions/send-email/index.ts",
+      "snippet": "Deno.serve(async (req) => {",
+      "severity": "high",
+      "regex": true,
+      "description": "Edge Function sends any email to anyone with no login check and no limit: free spam relay on your domain",
+      "lines": [
+        5,
+        15
+      ]
+    },
+    {
+      "id": "L9",
+      "check": "S9",
+      "file": "src/components/Comments.tsx",
+      "snippet": "dangerouslySetInnerHTML={{ __html: c.body }}",
+      "severity": "high",
+      "regex": true,
+      "description": "comment bodies (writable by anyone, see L3) rendered as raw HTML: stored XSS",
+      "lines": [
+        20,
+        20
+      ]
+    },
+    {
+      "id": "L10",
+      "check": "S7",
+      "also": [
+        "S6"
+      ],
+      "file": "src/pages/Upgrade.tsx",
+      "snippet": "if (params.get(\"success\") === \"true\") {",
+      "severity": "high",
+      "regex": false,
+      "description": "Pro plan unlocked from ?success=true in the browser: anyone can open the URL and skip paying",
+      "lines": [
+        10,
+        16
+      ]
+    },
+    {
+      "id": "L11",
+      "check": "S12",
+      "file": "src/pages/Login.tsx",
+      "snippet": "const DEMO_ACCOUNT",
+      "severity": "medium",
+      "regex": true,
+      "description": "hard-coded admin@admin.com / admin123 demo account shipped in the login page",
+      "lines": [
+        4,
+        4
+      ]
+    }
+  ],
+  "decoys": [
+    {
+      "id": "LD1",
+      "check": "S1",
+      "file": "src/lib/supabase.ts",
+      "snippet": "const SUPABASE_ANON_KEY",
+      "why": "Supabase anon key is public by design; safety comes from RLS",
+      "lines": [
+        4,
+        4
+      ]
+    },
+    {
+      "id": "LD2",
+      "check": "S1",
+      "file": "src/lib/stripe.ts",
+      "snippet": "loadStripe(",
+      "why": "Stripe publishable key (pk_) is meant for the browser",
+      "lines": [
+        3,
+        3
+      ]
+    },
+    {
+      "id": "LD3",
+      "check": "S3",
+      "file": "supabase/migrations/20240612093000_init.sql",
+      "snippet": "create policy \"Posts are public\"",
+      "why": "read-only public policy on a blog table: posts are public content",
+      "lines": [
+        22,
+        23
+      ]
+    },
+    {
+      "id": "LD4",
+      "check": "S9",
+      "file": "src/components/Footer.tsx",
+      "snippet": "iconRef.current.innerHTML =",
+      "why": "innerHTML set to a static SVG string written by the developer, no user input",
+      "lines": [
+        8,
+        8
+      ]
+    },
+    {
+      "id": "LD5",
+      "check": "C1",
+      "file": "src/main.tsx",
+      "snippet": "console.error(",
+      "why": "console.error inside a global error handler is intentional logging",
+      "lines": [
+        5,
+        5
+      ]
+    }
+  ]
+}

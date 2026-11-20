@@ -1,0 +1,58 @@
+{
+  "error-handler": {
+    "why": "Debug logs go; console.error in a real error handler stays.",
+    "files": {
+      "src/api.ts": {
+        "keep": [
+          "console.error(\"Could not load invoices\", err);",
+          "throw err;",
+          "if (!res.ok)"
+        ],
+        "cut": [
+          "console.log(\"loading invoices",
+          "console.log(\"status\""
+        ]
+      }
+    }
+  },
+  "mock-in-use": {
+    "why": "A mock array the UI still imports is listed as a task, not deleted.",
+    "files": {
+      "src/data/mockProducts.ts": {
+        "keep": [
+          "export const mockProducts",
+          "Canvas tote"
+        ]
+      },
+      "src/components/ProductGrid.tsx": {
+        "keep": [
+          "import { mockProducts } from \"../data/mockProducts\";",
+          "mockProducts.map"
+        ]
+      }
+    },
+    "report_has": [
+      "mockProducts"
+    ]
+  },
+  "dynamic-import": {
+    "why": "A component with no static import that may be loaded by a dynamic import() is listed as a task, never deleted.",
+    "files": {
+      "src/components/widgets/LegacyMap.tsx": {
+        "unchanged": true
+      },
+      "src/components/widgets/RevenueChart.tsx": {
+        "unchanged": true
+      },
+      "src/components/Dashboard.tsx": {
+        "keep": [
+          "import(`./widgets/${name}.tsx`)",
+          "enabledWidgets.map"
+        ]
+      }
+    },
+    "report_has": [
+      "LegacyMap"
+    ]
+  }
+}
