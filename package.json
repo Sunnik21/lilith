@@ -1,6 +1,6 @@
 {
   "name": "lilith-skill",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Security check for vibecoded apps: an Agent Skill for Claude Code, Codex, Cursor, Copilot, Gemini CLI and more. Finds leaked keys, open Supabase/Firebase databases and missing login checks, in plain words.",
   "repository": {
     "type": "git",
